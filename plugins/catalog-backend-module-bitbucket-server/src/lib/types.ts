@@ -33,3 +33,32 @@ export type BitbucketServerRepository = {
 export type BitbucketServerProject = {
   key: string;
 };
+
+export namespace Events {
+  export interface Event {
+    eventKey: string;
+  }
+
+  export interface PushEvent extends Event {
+    eventKey: string;
+    date: string;
+    actor: Actor;
+    repository: BitbucketServerEventRepository;
+    changes: Change[];
+    commits: undefined;
+    ToCommit: undefined;
+  }
+  export type Actor = {
+    name?: string;
+    id: number;
+  };
+  export type Change = {
+    ref: { id: string; displayId: string; type: string };
+  };
+  export type BitbucketServerEventRepository = {
+    slug: string;
+    id: number;
+    name: string;
+    project: BitbucketServerProject;
+  };
+}

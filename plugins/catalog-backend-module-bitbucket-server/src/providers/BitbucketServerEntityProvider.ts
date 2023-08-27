@@ -15,7 +15,7 @@
  */
 
 import { PluginTaskScheduler, TaskRunner } from '@backstage/backend-tasks';
-import { Entity } from '@backstage/catalog-model';
+import { Entity, LocationEntity } from '@backstage/catalog-model';
 import { Config } from '@backstage/config';
 import { InputError } from '@backstage/errors';
 import {
@@ -25,6 +25,7 @@ import {
 import {
   EntityProvider,
   EntityProviderConnection,
+  DeferredEntity,
 } from '@backstage/plugin-catalog-node';
 import { Logger } from 'winston';
 import * as uuid from 'uuid';
@@ -37,6 +38,14 @@ import {
   BitbucketServerLocationParser,
   defaultBitbucketServerLocationParser,
 } from './BitbucketServerLocationParser';
+import { Events } from '../lib/types';
+import { EventParams, EventSubscriber } from '@backstage/plugin-events-node';
+import { CatalogApi } from '@backstage/catalog-client';
+import { TokenManager } from '@backstage/backend-common';
+import { EventBroker } from '@backstage/plugin-events-node';
+
+const DEFAULT_BRANCH = ['master', 'main'];
+const TOPIC_REPO_PUSH = 'bitbucketServer.repo:refs_changed';
 
 /**
  * Discovers catalog files located in Bitbucket Server.
@@ -53,6 +62,11 @@ export class BitbucketServerEntityProvider implements EntityProvider {
   private readonly logger: Logger;
   private readonly scheduleFn: () => Promise<void>;
   private connection?: EntityProviderConnection;
+  private readonly catalogApi?: CatalogApi;
+  private readonly tokenManager?: TokenManager;
+  private readonly eventBroker?: EventBroker;
+  private eventConfigErrorThrown = false;
+  readonly TARGET_ANNOTATION: string;
 
   static fromConfig(
     config: Config,
@@ -61,6 +75,9 @@ export class BitbucketServerEntityProvider implements EntityProvider {
       parser?: BitbucketServerLocationParser;
       schedule?: TaskRunner;
       scheduler?: PluginTaskScheduler;
+      catalogApi?: CatalogApi;
+      tokenManager?: TokenManager;
+      eventBroker?: EventBroker;
     },
   ): BitbucketServerEntityProvider[] {
     const integrations = ScmIntegrations.fromConfig(config);
@@ -95,6 +112,9 @@ export class BitbucketServerEntityProvider implements EntityProvider {
         options.logger,
         taskRunner,
         options.parser,
+        options.catalogApi,
+        options.tokenManager,
+        options.eventBroker,
       );
     });
   }
@@ -105,6 +125,9 @@ export class BitbucketServerEntityProvider implements EntityProvider {
     logger: Logger,
     taskRunner: TaskRunner,
     parser?: BitbucketServerLocationParser,
+    catalogApi?: CatalogApi,
+    tokenManager?: TokenManager,
+    eventBroker?: EventBroker,
   ) {
     this.integration = integration;
     this.config = config;
@@ -113,6 +136,10 @@ export class BitbucketServerEntityProvider implements EntityProvider {
       target: this.getProviderName(),
     });
     this.scheduleFn = this.createScheduleFn(taskRunner);
+    this.catalogApi = catalogApi;
+    this.tokenManager = tokenManager;
+    this.eventBroker = eventBroker;
+    this.TARGET_ANNOTATION = `${this.config.host}/repo-url`;
   }
 
   private createScheduleFn(taskRunner: TaskRunner): () => Promise<void> {
@@ -216,4 +243,309 @@ export class BitbucketServerEntityProvider implements EntityProvider {
     }
     return result;
   }
+
+  /**
+   * Checks if the webhook was triggered on a commit to the head branch of a repository
+   * @param event Bitbucket Server webhook repo:refs_changed event
+   */
+  private isHeadPush(event: Events.PushEvent): boolean {
+    return event.changes.some(c => DEFAULT_BRANCH.includes(c.ref.displayId));
+  }
+
+  /**
+   * Checks if the provider is able to handle events
+   * @returns Boolean
+   */
+  private canHandleEvents(): boolean {
+    if (
+      this.catalogApi !== undefined &&
+      this.catalogApi !== null &&
+      this.tokenManager !== undefined &&
+      this.tokenManager !== null
+    ) {
+      return true;
+    }
+
+    if (!this.eventConfigErrorThrown) {
+      this.eventConfigErrorThrown = true;
+      throw new Error(
+        `${this.getProviderName()} not well configured to handle repo:push. Missing CatalogApi and/or TokenManager.`,
+      );
+    }
+
+    return false;
+  }
+
+  /**
+   * Creates a Bitbucket Server location entity for the repository that is referenced in the push event passed in.
+   *
+   * @param event A Bitbucket Server push event with repository information.
+   *
+   * @returns An array of location entities for the repository.
+   *
+   * @example
+   *
+   * const PushEvent = {
+   *   "eventKey": "repo:refs_changed",
+   *   "date": "2022-01-01T00:00:00Z",
+   *   "actor": {
+   *     "name": "johndoe",
+   *     "emailAddress": "johndoe@example.com",
+   *     "id": 123,
+   *     "displayName": "John Doe",
+   *     "active": true,
+   *     "slug": "johndoe",
+   *     "type": "NORMAL"
+   *   },
+   *   "repository": {
+   *     "slug": "my-repo",
+   *     "id": 123,
+   *     "name": "My Repository",
+   *     "project": {
+   *       "key": "my-project",
+   *       "id": 456,
+   *       "name": "My Project",
+   *       "description": "My project description",
+   *       "public": true,
+   *       "type": "NORMAL"
+   *     }
+   *   },
+   *   "changes": [
+   *     {
+   *       "ref": {
+   *         "id": "refs/heads/master",
+   *         "displayId": "master",
+   *         "type": "BRANCH"
+   *       },
+   *       "refId": "refs/heads/master",
+   *       "fromHash": "0123456789abcdef0123456789abcdef0123456",
+   *       "toHash": "fedcba9876543210fedcba9876543210fedcba9",
+   *       "type": "UPDATE"
+   *     }
+   *   ]
+   * };
+   *
+   * const locationEntities = await getLocationEntity(PushEvent);
+   *
+   * // locationEntities:
+   * // [
+   * //   {
+   * //     kind: 'Location',
+   * //     metadata: {
+   * //       name: 'my-repo',
+   * //       namespace: 'my-project',
+   * //       annotations: {
+   * //         'backstage.io/managed-by-location': 'url/catalog-info-path',
+   * //         'backstage.io/managed-by-origin-location': 'url/catalog-info-path',
+   * //         'host/repo-url': 'url',
+   * //       },
+   * //     },
+   * //     spec: {
+   * //       type: 'bitbucket',
+   * //       target: 'url/catalog-info-path',
+   * //       presence: 'optional',
+   * //     },
+   * //   },
+   * // ]
+   */
+  private async getLocationEntity(event: Events.PushEvent): Promise<Entity[]> {
+    const client = BitbucketServerClient.fromConfig({
+      config: this.integration.config,
+    });
+    const repository = await client.getRepository({
+      projectKey: event.repository.project.key,
+      repo: event.repository.slug,
+    });
+    const result: Entity[] = [];
+    for await (const entity of this.parser({
+      client,
+      logger: this.logger,
+      location: {
+        type: 'url',
+        target: `${repository.links.self[0].href}${this.config.catalogPath}`,
+        presence: 'optional',
+      },
+    })) {
+      entity.metadata.annotations![
+        this.TARGET_ANNOTATION
+      ] = `${repository.links.self[0].href}${this.config.catalogPath}`;
+      result.push(entity);
+    }
+    return result;
+  }
+
+  /** {@inheritdoc @backstage/plugin-events-node#EventSubscriber.supportsEventTopics} */
+  supportsEventTopics(): string[] {
+    return [TOPIC_REPO_PUSH];
+  }
+
+  /** {@inheritdoc @backstage/plugin-events-node#EventSubscriber.onEvent} */
+  async onEvent(params: EventParams): Promise<void> {
+    if (params.topic === TOPIC_REPO_PUSH) {
+      await this.onRepoPush(params.eventPayload as Events.PushEvent);
+    }
+  }
+
+  /**
+   * Finds if there are existing location entities for the repository that was pushed. If there are, it simply refreshes those entities,
+   * if not, it discovers any entity that was added and removed in the list of entities
+   * @param event A Bitbucket Server webhook event for repo:refs_change
+   */
+  async onRepoPush(event: Events.PushEvent): Promise<void> {
+    if (!this.canHandleEvents()) {
+      return;
+    }
+
+    if (!this.connection) {
+      throw new Error('Not initialized');
+    }
+
+    if (!this.isHeadPush(event)) return;
+
+    const repoSlug = event.repository.slug!;
+    const repoUrl: string = `https://${this.config.host}/projects/${event.repository.project.key}/repos/${repoSlug}/browse`;
+    const catalogRepoUrl: string = `https://${this.config.host}/projects/${event.repository.project.key}/repos/${repoSlug}/browse${this.config.catalogPath}`;
+    this.logger.info(`handle repo:push event for ${catalogRepoUrl}`);
+    const targets = await this.getLocationEntity(event);
+    const { token } = await this.tokenManager!.getToken();
+    const existing = await this.findExistingLocations(catalogRepoUrl, token);
+
+    const added = this.getAddedEntities(targets, existing);
+
+    const stillExisting: LocationEntity[] = [];
+    const removed: DeferredEntity[] = [];
+    existing.forEach(item => {
+      if (
+        targets.find(
+          value =>
+            value.metadata.annotations![this.TARGET_ANNOTATION] ===
+            item.spec.target,
+        )
+      ) {
+        stillExisting.push(item);
+      } else {
+        removed.push({
+          locationKey: this.getProviderName(),
+          entity: item,
+        });
+      }
+    });
+
+    const promises: Promise<void>[] = [
+      this.connection.refresh({
+        keys: stillExisting.map(entity => `url:${entity.spec.target}`),
+      }),
+    ];
+
+    if (added.length > 0 || removed.length > 0) {
+      promises.push(
+        this.connection.applyMutation({
+          type: 'delta',
+          added: added,
+          removed: removed,
+        }),
+      );
+    }
+
+    await Promise.all(promises);
+    if (this.eventBroker !== undefined) {
+      await this.publishCatalogMutate({ repoUrl: repoUrl });
+    }
+  }
+
+  /**
+   * Publishes event upon catalog mutation
+   * @param payload Payload to be published to the event broker
+   */
+  private async publishCatalogMutate(
+    payload: Record<string, string>,
+  ): Promise<void> {
+    await new Promise(resolve => {
+      setTimeout(resolve, 10000);
+    });
+    await this.eventBroker!.publish({
+      topic: 'CatalogMutate',
+      eventPayload: payload,
+    });
+  }
+
+  /**
+   * Gets the location entities that are to be newly added to the catalog.
+   * @param targets Location entities for catalog files in the repository that was pushed
+   * @param existing The location entities in the repository that was pushed that already exist
+   * @returns Returns all deferred entities that represent location entities that don't exist in the catalog yet
+   */
+  private getAddedEntities(
+    targets: Entity[],
+    existing: LocationEntity[],
+  ): DeferredEntity[] {
+    const added: DeferredEntity[] = toDeferredEntities(
+      targets.filter(
+        target =>
+          !existing.find(
+            item =>
+              item.spec.target ===
+              target.metadata.annotations![this.TARGET_ANNOTATION],
+          ),
+      ),
+      this.getProviderName(),
+    );
+    return added;
+  }
+
+  /**
+   * Finds all location entities in the catalog that already have the annotation `metadata.annotations.${this.config.host}/repo-url`
+   * that is equivalent to @param repoURL\.
+   * @param repoURL URL for the reposity that the method finds the existing location entities for
+   * @param token Token from class token manager
+   */
+  private async findExistingLocations(
+    catalogRepoUrl: string,
+    token: string,
+  ): Promise<LocationEntity[]> {
+    const filter: Record<string, string> = {};
+    filter.kind = 'Location';
+    filter[`metadata.annotations.${this.TARGET_ANNOTATION}`] = catalogRepoUrl;
+
+    return this.catalogApi!.getEntities({ filter }, { token }).then(
+      result => result.items,
+    ) as Promise<LocationEntity[]>;
+  }
+
+  /**
+   * Converts an array of entities into an array of deferred entities with the provider's name as the location key.
+   *
+   * @param targets An array of entities to convert.
+   *
+   * @returns An array of deferred entities with the provider's name as the location key.
+   *
+   * @example
+   *
+   * const entities = [
+   *   { kind: 'Component', namespace: 'default', name: 'my-component' },
+   *   { kind: 'System', namespace: 'default', name: 'my-system' },
+   *   { kind: 'API', namespace: 'default', name: 'my-api' },
+   * ];
+   *
+   * const deferredEntities = toDeferredEntities(entities);
+   *
+   * // deferredEntities:
+   * // [
+   * //   { locationKey: 'my-provider', entity: { kind: 'Component', namespace: 'default', name: 'my-component' } },
+   * //   { locationKey: 'my-provider', entity: { kind: 'System', namespace: 'default', name: 'my-system' } },
+   * //   { locationKey: 'my-provider', entity: { kind: 'API', namespace: 'default', name: 'my-api' } },
+   * // ]
+   */
+}
+
+export function toDeferredEntities(
+  targets: Entity[],
+  locationKey: string,
+): DeferredEntity[] {
+  return targets.map(entity => {
+    return {
+      locationKey,
+      entity,
+    };
+  });
 }
