@@ -14,13 +14,24 @@
  * limitations under the License.
  */
 
-export { BitbucketServerClient, paginated } from './BitbucketServerClient';
-export type {
-  BitbucketServerPagedResponse,
-  BitbucketServerListOptions,
-} from './BitbucketServerClient';
-export type {
-  BitbucketServerRepository,
-  BitbucketServerProject,
-  BitbucketServerEvents,
-} from './types';
+import {
+  EventParams,
+  SubTopicEventRouter,
+} from '@backstage/plugin-events-node';
+
+/**
+ * Subscribes to the generic `bitbucketServer` topic
+ * and publishes the events under the more concrete sub-topic
+ * depending on the `x-event-key` provided.
+ *
+ * @public
+ */
+export class BitbucketServerEventRouter extends SubTopicEventRouter {
+  constructor() {
+    super('bitbucketServer');
+  }
+
+  protected determineSubTopic(params: EventParams): string | undefined {
+    return params.metadata?.['x-event-key'] as string | undefined;
+  }
+}
