@@ -4631,7 +4631,28 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+<<<<<<< HEAD
 "@backstage/integration@^1.8.0, @backstage/integration@workspace:^, @backstage/integration@workspace:packages/integration":
+=======
+"@backstage/integration@npm:^1.6.1, @backstage/integration@npm:^1.6.2":
+  version: 1.6.2
+  resolution: "@backstage/integration@npm:1.6.2"
+  dependencies:
+    "@azure/identity": ^3.2.1
+    "@backstage/config": ^1.0.8
+    "@backstage/errors": ^1.2.1
+    "@octokit/auth-app": ^4.0.0
+    "@octokit/rest": ^19.0.3
+    cross-fetch: ^3.1.5
+    git-url-parse: ^13.0.0
+    lodash: ^4.17.21
+    luxon: ^3.0.0
+  checksum: 5ae6a3def92ee9feb114fecea8a36337df592f49f23875fa619b0eba223f287ed7bbe993c15cac99c2b45c3150e10bb2e1bb4389b34a09de5377365ab13e9ae7
+  languageName: node
+  linkType: hard
+
+"@backstage/integration@workspace:^, @backstage/integration@workspace:packages/integration":
+>>>>>>> ccbec29d84bb (Add Bitbucket Server events changeset)
   version: 0.0.0-use.local
   resolution: "@backstage/integration@workspace:packages/integration"
   dependencies:
@@ -6835,6 +6856,20 @@ __metadata:
     "@backstage/cli": "workspace:^"
     "@backstage/plugin-events-backend-test-utils": "workspace:^"
     "@backstage/plugin-events-node": "workspace:^"
+    winston: ^3.2.1
+  languageName: unknown
+  linkType: soft
+
+"@backstage/plugin-events-backend-module-bitbucket-server@workspace:plugins/events-backend-module-bitbucket-server":
+  version: 0.0.0-use.local
+  resolution: "@backstage/plugin-events-backend-module-bitbucket-server@workspace:plugins/events-backend-module-bitbucket-server"
+  dependencies:
+    "@backstage/backend-plugin-api": ^0.5.3
+    "@backstage/backend-test-utils": ^0.1.38
+    "@backstage/cli": ^0.22.8
+    "@backstage/plugin-events-backend-test-utils": ^0.1.8
+    "@backstage/plugin-events-node": ^0.2.7
+    supertest: ^6.1.3
     winston: ^3.2.1
   languageName: unknown
   linkType: soft
@@ -12078,20 +12113,6 @@ __metadata:
     react: ^16.13.1 || ^17.0.0
     react-dom: ^16.13.1 || ^17.0.0
     react-router-dom: 6.0.0-beta.0 || ^6.3.0
-  languageName: unknown
-  linkType: soft
-
-"@internal/plugin-events-backend-module-bitbucket-server@workspace:plugins/events-backend-module-bitbucket-server":
-  version: 0.0.0-use.local
-  resolution: "@internal/plugin-events-backend-module-bitbucket-server@workspace:plugins/events-backend-module-bitbucket-server"
-  dependencies:
-    "@backstage/backend-plugin-api": ^0.5.3
-    "@backstage/backend-test-utils": ^0.1.38
-    "@backstage/cli": ^0.22.8
-    "@backstage/plugin-events-backend-test-utils": ^0.1.8
-    "@backstage/plugin-events-node": ^0.2.7
-    supertest: ^6.1.3
-    winston: ^3.2.1
   languageName: unknown
   linkType: soft
 

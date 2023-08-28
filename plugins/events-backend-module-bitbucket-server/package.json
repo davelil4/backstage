@@ -1,5 +1,5 @@
 {
-  "name": "@internal/plugin-events-backend-module-bitbucket-server",
+  "name": "@backstage/plugin-events-backend-module-bitbucket-server",
   "version": "0.1.0",
   "main": "src/index.ts",
   "types": "src/index.ts",
