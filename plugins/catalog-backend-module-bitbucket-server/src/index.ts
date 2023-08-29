@@ -21,6 +21,7 @@
  */
 
 export { BitbucketServerClient } from './lib';
+export type { Events } from './lib/index';
 export type {
   BitbucketServerProject,
   BitbucketServerRepository,

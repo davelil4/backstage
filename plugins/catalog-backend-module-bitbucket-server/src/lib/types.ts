@@ -34,6 +34,7 @@ export type BitbucketServerProject = {
   key: string;
 };
 
+/** @public */
 export namespace Events {
   export interface Event {
     eventKey: string;

@@ -22,4 +22,5 @@ export type {
 export type {
   BitbucketServerRepository,
   BitbucketServerProject,
+  Events,
 } from './types';

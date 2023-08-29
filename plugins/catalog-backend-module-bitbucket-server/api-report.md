@@ -4,15 +4,19 @@
 
 ```ts
 import { BitbucketServerIntegrationConfig } from '@backstage/integration';
+import { CatalogApi } from '@backstage/catalog-client';
 import { Config } from '@backstage/config';
 import { Entity } from '@backstage/catalog-model';
 import { EntityProvider } from '@backstage/plugin-catalog-node';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-node';
+import { EventBroker } from '@backstage/plugin-events-node';
+import { EventParams } from '@backstage/plugin-events-node';
 import { LocationSpec } from '@backstage/plugin-catalog-node';
 import { Logger } from 'winston';
 import { PluginTaskScheduler } from '@backstage/backend-tasks';
 import { Response as Response_2 } from 'node-fetch';
 import { TaskRunner } from '@backstage/backend-tasks';
+import { TokenManager } from '@backstage/backend-common';
 
 // @public
 export class BitbucketServerClient {
@@ -59,12 +63,22 @@ export class BitbucketServerEntityProvider implements EntityProvider {
       parser?: BitbucketServerLocationParser;
       schedule?: TaskRunner;
       scheduler?: PluginTaskScheduler;
+      catalogApi?: CatalogApi;
+      tokenManager?: TokenManager;
+      eventBroker?: EventBroker;
     },
   ): BitbucketServerEntityProvider[];
   // (undocumented)
   getProviderName(): string;
   // (undocumented)
+  onEvent(params: EventParams): Promise<void>;
+  onRepoPush(event: Events.PushEvent): Promise<void>;
+  // (undocumented)
   refresh(logger: Logger): Promise<void>;
+  // (undocumented)
+  supportsEventTopics(): string[];
+  // (undocumented)
+  readonly TARGET_ANNOTATION: string;
 }
 
 // @public (undocumented)
@@ -110,4 +124,50 @@ export type BitbucketServerRepository = {
     }[]
   >;
 };
+
+// @public (undocumented)
+export namespace Events {
+  // (undocumented)
+  export type Actor = {
+    name?: string;
+    id: number;
+  };
+  // (undocumented)
+  export type BitbucketServerEventRepository = {
+    slug: string;
+    id: number;
+    name: string;
+    project: BitbucketServerProject;
+  };
+  // (undocumented)
+  export type Change = {
+    ref: {
+      id: string;
+      displayId: string;
+      type: string;
+    };
+  };
+  // (undocumented)
+  export interface Event {
+    // (undocumented)
+    eventKey: string;
+  }
+  // (undocumented)
+  export interface PushEvent extends Event {
+    // (undocumented)
+    actor: Actor;
+    // (undocumented)
+    changes: Change[];
+    // (undocumented)
+    commits: undefined;
+    // (undocumented)
+    date: string;
+    // (undocumented)
+    eventKey: string;
+    // (undocumented)
+    repository: BitbucketServerEventRepository;
+    // (undocumented)
+    ToCommit: undefined;
+  }
+}
 ```

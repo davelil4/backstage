@@ -38,7 +38,7 @@ import {
   BitbucketServerLocationParser,
   defaultBitbucketServerLocationParser,
 } from './BitbucketServerLocationParser';
-import { Events } from '../lib/types';
+import { Events } from '../lib/index';
 import { EventParams } from '@backstage/plugin-events-node';
 import { CatalogApi } from '@backstage/catalog-client';
 import { TokenManager } from '@backstage/backend-common';
@@ -389,7 +389,7 @@ export class BitbucketServerEntityProvider implements EntityProvider {
   /**
    * Finds if there are existing location entities for the repository that was pushed. If there are, it simply refreshes those entities,
    * if not, it discovers any entity that was added and removed in the list of entities
-   * @param event A Bitbucket Server webhook event for repo:refs_change
+   * @param event - A Bitbucket Server webhook event for repo:refs_change
    */
   async onRepoPush(event: Events.PushEvent): Promise<void> {
     if (!this.canHandleEvents()) {
