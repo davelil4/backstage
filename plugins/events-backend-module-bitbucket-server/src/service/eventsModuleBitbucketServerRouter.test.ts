@@ -34,7 +34,6 @@ describe('eventsModuleBitbucketServerEventRouter', () => {
 
     await startTestBackend({
       extensionPoints: [[eventsExtensionPoint, extensionPoint]],
-      services: [],
       features: [eventsModuleBitbucketServerEventRouter()],
     });
 
