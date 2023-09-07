@@ -44,7 +44,7 @@ new EventsBackend(env.logger)
 // [...]
 ```
 
-# Setting up the Btibucket Server Provider
+# Setting up the Bitbucket Server Provider
 
 Set up your provider
 
