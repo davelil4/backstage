@@ -22,6 +22,8 @@ Please find all possible webhook event types at the
 
 ## Installation
 
+# Setting up the router
+
 Install the [`events-backend` plugin](../events-backend/README.md).
 
 Install this module:
@@ -40,4 +42,55 @@ new EventsBackend(env.logger)
 +  .addPublishers(bitbucketServerEventRouter)
 +  .addSubscribers(bitbucketServerEventRouter);
 // [...]
+```
+
+# Setting up the Btibucket Server Provider
+
+Set up your provider
+
+```ts title="packages/backend/src/plugins/catalog.ts"
+import { CatalogBuilder } from '@backstage/plugin-catalog-backend';
+/* highlight-add-start */
+import { BitbucketServerEntityProvider } from '@backstage/plugin-catalog-backend-module-bitbucket-server';
+/* highlight-add-end */
+
+import { ScaffolderEntitiesProcessor } from '@backstage/plugin-scaffolder-backend';
+import { Router } from 'express';
+import { PluginEnvironment } from '../types';
+
+export default async function createPlugin(
+  env: PluginEnvironment,
+): Promise<Router> {
+  const builder = await CatalogBuilder.create(env);
+  builder.addProcessor(new ScaffolderEntitiesProcessor());
+  /* highlight-add-start */
+  const bitbucketServerProvider = BitbucketServerEntityProvider.fromConfig(
+    env.config,
+    {
+      catalogApi: new CatalogClient({ discoveryApi: env.discovery }),
+      logger: env.logger,
+      scheduler: env.scheduler,
+      tokenManager: env.tokenManager,
+      eventBroker: env.eventBroker, // Optional
+    },
+  );
+  env.eventBroker.subscribe(bitbucketServerProvider);
+  builder.addEntityProvider(bitbucketServerProvider);
+  /* highlight-add-end */
+  const { processingEngine, router } = await builder.build();
+  await processingEngine.start();
+  return router;
+}
+```
+
+# Setting up app-config.yaml
+
+Include the `bitbucketServer` as follows:
+
+```yaml
+events:
+  http:
+    topics:
+      - bitbucketServer
+      # other topics...
 ```
