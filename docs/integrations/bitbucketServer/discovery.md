@@ -59,6 +59,7 @@ Please follow the installation instructions at
 Additionally, you need to decide how you want to receive events from external sources like
 
 - [via HTTP endpoint](https://github.com/backstage/backstage/tree/master/plugins/events-backend/README.md)
+  - Bitbucket Server events webhook url should be set to `{backstageBaseUrl}/api/events/http/bitbucketServer`
 - [via an AWS SQS queue](https://github.com/backstage/backstage/tree/master/plugins/events-backend-module-aws-sqs/README.md)
 
 Set up your provider

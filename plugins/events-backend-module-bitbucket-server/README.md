@@ -15,7 +15,6 @@ Examples:
 | ------------------- | ----------------------------------- |
 | `repo:refs_changed` | `bitbucketServer.repo:refs_changed` |
 | `repo:modified`     | `bitbucketServer.repo:modified`     |
-| `pr:opened`         | `bitbucketServer.pr:opened`         |
 
 Please find all possible webhook event types at the
 [official documentation](https://confluence.atlassian.com/bitbucketserver/event-payload-938025882.html).
