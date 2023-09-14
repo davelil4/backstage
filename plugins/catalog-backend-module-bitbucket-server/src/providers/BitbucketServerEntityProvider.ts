@@ -352,25 +352,33 @@ export class BitbucketServerEntityProvider implements EntityProvider {
     const client = BitbucketServerClient.fromConfig({
       config: this.integration.config,
     });
-    const repository = await client.getRepository({
-      projectKey: event.repository.project.key,
-      repo: event.repository.slug,
-    });
     const result: Entity[] = [];
-    for await (const entity of this.parser({
-      client,
-      logger: this.logger,
-      location: {
-        type: 'url',
-        target: `${repository.links.self[0].href}${this.config.catalogPath}`,
-        presence: 'optional',
-      },
-    })) {
-      entity.metadata.annotations![
-        this.TARGET_ANNOTATION
-      ] = `${repository.links.self[0].href}${this.config.catalogPath}`;
-      result.push(entity);
+    try {
+      const repository = await client.getRepository({
+        projectKey: event.repository.project.key,
+        repo: event.repository.slug,
+      });
+
+      for await (const entity of this.parser({
+        client,
+        logger: this.logger,
+        location: {
+          type: 'url',
+          target: `${repository.links.self[0].href}${this.config.catalogPath}`,
+          presence: 'optional',
+        },
+      })) {
+        entity.metadata.annotations![
+          this.TARGET_ANNOTATION
+        ] = `${repository.links.self[0].href}${this.config.catalogPath}`;
+        result.push(entity);
+      }
+    } catch (error: any) {
+      if (error.name === 'NotAllowedError') {
+        this.logger.error(error.message);
+      }
     }
+
     return result;
   }
 
@@ -382,6 +390,17 @@ export class BitbucketServerEntityProvider implements EntityProvider {
   /** {@inheritdoc @backstage/plugin-events-node#EventSubscriber.onEvent} */
   async onEvent(params: EventParams): Promise<void> {
     if (params.topic === TOPIC_REPO_PUSH) {
+      const payload = params.eventPayload as Events.PushEvent;
+
+      if (
+        payload.repository.slug === undefined ||
+        payload.repository.project.key === undefined ||
+        payload.changes === undefined
+      ) {
+        this.logger.error(`Invalid event payload for ${params.topic}.`);
+        return;
+      }
+
       await this.onRepoPush(params.eventPayload as Events.PushEvent);
     }
   }
@@ -407,6 +426,10 @@ export class BitbucketServerEntityProvider implements EntityProvider {
     const catalogRepoUrl: string = `https://${this.config.host}/projects/${event.repository.project.key}/repos/${repoSlug}/browse${this.config.catalogPath}`;
     this.logger.info(`handle repo:push event for ${catalogRepoUrl}`);
     const targets = await this.getLocationEntity(event);
+    if (targets.length === 0) {
+      this.logger.error('Failed to create location entity.');
+      return;
+    }
     const { token } = await this.tokenManager!.getToken();
     const existing = await this.findExistingLocations(catalogRepoUrl, token);
 

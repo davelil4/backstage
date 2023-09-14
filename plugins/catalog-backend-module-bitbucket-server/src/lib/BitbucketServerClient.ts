@@ -20,6 +20,7 @@ import {
   getBitbucketServerRequestOptions,
 } from '@backstage/integration';
 import { BitbucketServerProject, BitbucketServerRepository } from './types';
+import { NotAllowedError } from '@backstage/errors';
 
 /**
  * A client for interacting with a Bitbucket Server instance
@@ -81,7 +82,14 @@ export class BitbucketServerClient {
       request,
       getBitbucketServerRequestOptions(this.config),
     );
-    return response.json();
+    try {
+      const json_res = await response.json();
+      return json_res;
+    } catch {
+      throw new NotAllowedError(
+        `Malformed json response when attempting to get repository '${options.repo}' in project '${options.projectKey}' from Bitbucket Server. Repository might not exist.`,
+      );
+    }
   }
 
   resolvePath(options: { projectKey: string; repo: string; path: string }): {
