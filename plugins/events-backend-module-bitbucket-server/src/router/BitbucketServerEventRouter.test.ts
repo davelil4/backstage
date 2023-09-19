@@ -19,7 +19,7 @@ import { BitbucketServerEventRouter } from './BitbucketServerEventRouter';
 
 describe('BitbucketServerEventRouter', () => {
   const eventRouter = new BitbucketServerEventRouter();
-  const topic = 'bitbucketCloud';
+  const topic = 'bitbucketServer';
   const eventPayload = { test: 'payload' };
   const metadata = { 'x-event-key': 'test:type' };
 
@@ -39,7 +39,7 @@ describe('BitbucketServerEventRouter', () => {
     eventRouter.onEvent({ topic, eventPayload, metadata });
 
     expect(eventBroker.published.length).toBe(1);
-    expect(eventBroker.published[0].topic).toEqual('bitbucketCloud.test:type');
+    expect(eventBroker.published[0].topic).toEqual('bitbucketServer.test:type');
     expect(eventBroker.published[0].eventPayload).toEqual(eventPayload);
     expect(eventBroker.published[0].metadata).toEqual(metadata);
   });

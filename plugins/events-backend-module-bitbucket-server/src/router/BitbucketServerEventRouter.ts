@@ -20,7 +20,7 @@ import {
 } from '@backstage/plugin-events-node';
 
 /**
- * Subscribes to the generic `bitbucketCloud` topic
+ * Subscribes to the generic `bitbucketServer` topic
  * and publishes the events under the more concrete sub-topic
  * depending on the `x-event-key` provided.
  *

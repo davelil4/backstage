@@ -15,8 +15,8 @@
  */
 
 /**
- * The module "bitbucket-cloud" for the Backstage backend plugin "events-backend"
- * adding an event router for Bitbucket Cloud.
+ * The module "bitbucket-server" for the Backstage backend plugin "events-backend"
+ * adding an event router for Bitbucket Server.
  *
  * @packageDocumentation
  */
