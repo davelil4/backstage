@@ -35,7 +35,7 @@ import {
 } from './BitbucketServerEntityProvider';
 import { BitbucketServerPagedResponse } from '../lib';
 import { Entity, LocationEntity } from '@backstage/catalog-model';
-import { Events } from '../lib/types';
+import { BitbucketServerEvents } from '../lib/index';
 import { CatalogApi } from '@backstage/catalog-client';
 
 class PersistingTaskRunner implements TaskRunner {
@@ -153,7 +153,7 @@ const tokenManager = {
     return { token: 'fake-token' };
   },
 } as any as TokenManager;
-const repoPushEvent: Events.PushEvent = {
+const repoPushEvent: BitbucketServerEvents.RefsChangedEvent = {
   eventKey: 'repo:refs_changed',
   date: '2017-09-19T09:45:32+1000',
   actor: {
@@ -746,6 +746,7 @@ describe('BitbucketServerEntityProvider', () => {
               host: host,
               apiBaseUrl: `https://${host}/rest/api/1.0`,
               catalogPath: `/kept-module:/catalog-info.yaml`,
+              defaultBranch: 'master',
             },
           },
         },

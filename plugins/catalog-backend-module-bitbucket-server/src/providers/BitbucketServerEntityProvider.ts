@@ -38,14 +38,12 @@ import {
   BitbucketServerLocationParser,
   defaultBitbucketServerLocationParser,
 } from './BitbucketServerLocationParser';
-import { Events } from '../lib/index';
-import { EventParams } from '@backstage/plugin-events-node';
+import { BitbucketServerEvents } from '../lib/index';
+import { EventParams, EventSubscriber } from '@backstage/plugin-events-node';
 import { CatalogApi } from '@backstage/catalog-client';
 import { TokenManager } from '@backstage/backend-common';
-import { EventBroker } from '@backstage/plugin-events-node';
 
-const DEFAULT_BRANCH = ['master', 'main'];
-const TOPIC_REPO_PUSH = 'bitbucketServer.repo:refs_changed';
+const TOPIC_REPO_REFS_CHANGED = 'bitbucketServer.repo:refs_changed';
 
 /**
  * Discovers catalog files located in Bitbucket Server.
@@ -55,7 +53,9 @@ const TOPIC_REPO_PUSH = 'bitbucketServer.repo:refs_changed';
  *
  * @public
  */
-export class BitbucketServerEntityProvider implements EntityProvider {
+export class BitbucketServerEntityProvider
+  implements EntityProvider, EventSubscriber
+{
   private readonly integration: BitbucketServerIntegration;
   private readonly config: BitbucketServerEntityProviderConfig;
   private readonly parser: BitbucketServerLocationParser;
@@ -64,9 +64,9 @@ export class BitbucketServerEntityProvider implements EntityProvider {
   private connection?: EntityProviderConnection;
   private readonly catalogApi?: CatalogApi;
   private readonly tokenManager?: TokenManager;
-  private readonly eventBroker?: EventBroker;
   private eventConfigErrorThrown = false;
-  readonly TARGET_ANNOTATION: string;
+  private readonly TARGET_ANNOTATION: string;
+  private readonly DEFAULT_BRANCH: String | undefined;
 
   static fromConfig(
     config: Config,
@@ -77,7 +77,6 @@ export class BitbucketServerEntityProvider implements EntityProvider {
       scheduler?: PluginTaskScheduler;
       catalogApi?: CatalogApi;
       tokenManager?: TokenManager;
-      eventBroker?: EventBroker;
     },
   ): BitbucketServerEntityProvider[] {
     const integrations = ScmIntegrations.fromConfig(config);
@@ -106,15 +105,21 @@ export class BitbucketServerEntityProvider implements EntityProvider {
         options.schedule ??
         options.scheduler!.createScheduledTaskRunner(providerConfig.schedule!);
 
+      const defaultBranch = providerConfig.defaultBranch;
+      if (defaultBranch === undefined)
+        options.logger.error(
+          `No default repository branch provided for provider id: ${providerConfig.id}.`,
+        );
+
       return new BitbucketServerEntityProvider(
         providerConfig,
         integration,
         options.logger,
         taskRunner,
+        defaultBranch,
         options.parser,
         options.catalogApi,
         options.tokenManager,
-        options.eventBroker,
       );
     });
   }
@@ -124,10 +129,10 @@ export class BitbucketServerEntityProvider implements EntityProvider {
     integration: BitbucketServerIntegration,
     logger: Logger,
     taskRunner: TaskRunner,
+    defaultBranch?: String,
     parser?: BitbucketServerLocationParser,
     catalogApi?: CatalogApi,
     tokenManager?: TokenManager,
-    eventBroker?: EventBroker,
   ) {
     this.integration = integration;
     this.config = config;
@@ -138,8 +143,8 @@ export class BitbucketServerEntityProvider implements EntityProvider {
     this.scheduleFn = this.createScheduleFn(taskRunner);
     this.catalogApi = catalogApi;
     this.tokenManager = tokenManager;
-    this.eventBroker = eventBroker;
     this.TARGET_ANNOTATION = `${this.config.host}/repo-url`;
+    this.DEFAULT_BRANCH = defaultBranch;
   }
 
   private createScheduleFn(taskRunner: TaskRunner): () => Promise<void> {
@@ -248,8 +253,10 @@ export class BitbucketServerEntityProvider implements EntityProvider {
    * Checks if the webhook was triggered on a commit to the head branch of a repository
    * @param event Bitbucket Server webhook repo:refs_changed event
    */
-  private isHeadPush(event: Events.PushEvent): boolean {
-    return event.changes.some(c => DEFAULT_BRANCH.includes(c.ref.displayId));
+  private isDefaultBranchPush(
+    event: BitbucketServerEvents.RefsChangedEvent,
+  ): boolean {
+    return event.changes.some(c => this.DEFAULT_BRANCH === c.ref.displayId);
   }
 
   /**
@@ -285,7 +292,7 @@ export class BitbucketServerEntityProvider implements EntityProvider {
    *
    * @example
    *
-   * const PushEvent = {
+   * const RefsChangedEvent = {
    *   "eventKey": "repo:refs_changed",
    *   "date": "2022-01-01T00:00:00Z",
    *   "actor": {
@@ -325,7 +332,7 @@ export class BitbucketServerEntityProvider implements EntityProvider {
    *   ]
    * };
    *
-   * const locationEntities = await getLocationEntity(PushEvent);
+   * const locationEntities = await getLocationEntity(RefsChangedEvent);
    *
    * // locationEntities:
    * // [
@@ -348,7 +355,9 @@ export class BitbucketServerEntityProvider implements EntityProvider {
    * //   },
    * // ]
    */
-  private async getLocationEntity(event: Events.PushEvent): Promise<Entity[]> {
+  private async getLocationEntity(
+    event: BitbucketServerEvents.RefsChangedEvent,
+  ): Promise<Entity[]> {
     const client = BitbucketServerClient.fromConfig({
       config: this.integration.config,
     });
@@ -374,7 +383,7 @@ export class BitbucketServerEntityProvider implements EntityProvider {
         result.push(entity);
       }
     } catch (error: any) {
-      if (error.name === 'NotAllowedError') {
+      if (error.name === 'NotFoundError') {
         this.logger.error(error.message);
       }
     }
@@ -384,13 +393,14 @@ export class BitbucketServerEntityProvider implements EntityProvider {
 
   /** {@inheritdoc @backstage/plugin-events-node#EventSubscriber.supportsEventTopics} */
   supportsEventTopics(): string[] {
-    return [TOPIC_REPO_PUSH];
+    return [TOPIC_REPO_REFS_CHANGED];
   }
 
   /** {@inheritdoc @backstage/plugin-events-node#EventSubscriber.onEvent} */
   async onEvent(params: EventParams): Promise<void> {
-    if (params.topic === TOPIC_REPO_PUSH) {
-      const payload = params.eventPayload as Events.PushEvent;
+    if (params.topic === TOPIC_REPO_REFS_CHANGED) {
+      const payload =
+        params.eventPayload as BitbucketServerEvents.RefsChangedEvent;
 
       if (
         payload.repository.slug === undefined ||
@@ -401,7 +411,9 @@ export class BitbucketServerEntityProvider implements EntityProvider {
         return;
       }
 
-      await this.onRepoPush(params.eventPayload as Events.PushEvent);
+      await this.onRepoPush(
+        params.eventPayload as BitbucketServerEvents.RefsChangedEvent,
+      );
     }
   }
 
@@ -410,8 +422,13 @@ export class BitbucketServerEntityProvider implements EntityProvider {
    * if not, it discovers any entity that was added and removed in the list of entities
    * @param event - A Bitbucket Server webhook event for repo:refs_change
    */
-  async onRepoPush(event: Events.PushEvent): Promise<void> {
+  async onRepoPush(
+    event: BitbucketServerEvents.RefsChangedEvent,
+  ): Promise<void> {
     if (!this.canHandleEvents()) {
+      this.logger.error(
+        'Bitbucket Server catalog entity provider is not set up to handle events. Missing tokenManager or catalogApi.',
+      );
       return;
     }
 
@@ -419,10 +436,10 @@ export class BitbucketServerEntityProvider implements EntityProvider {
       throw new Error('Not initialized');
     }
 
-    if (!this.isHeadPush(event)) return;
+    if (this.DEFAULT_BRANCH !== undefined && !this.isDefaultBranchPush(event))
+      return;
 
-    const repoSlug = event.repository.slug!;
-    const repoUrl: string = `https://${this.config.host}/projects/${event.repository.project.key}/repos/${repoSlug}/browse`;
+    const repoSlug = event.repository.slug;
     const catalogRepoUrl: string = `https://${this.config.host}/projects/${event.repository.project.key}/repos/${repoSlug}/browse${this.config.catalogPath}`;
     this.logger.info(`handle repo:push event for ${catalogRepoUrl}`);
     const targets = await this.getLocationEntity(event);
@@ -471,25 +488,6 @@ export class BitbucketServerEntityProvider implements EntityProvider {
     }
 
     await Promise.all(promises);
-    if (this.eventBroker !== undefined) {
-      await this.publishCatalogMutate({ repoUrl: repoUrl });
-    }
-  }
-
-  /**
-   * Publishes event upon catalog mutation
-   * @param payload Payload to be published to the event broker
-   */
-  private async publishCatalogMutate(
-    payload: Record<string, string>,
-  ): Promise<void> {
-    await new Promise(resolve => {
-      setTimeout(resolve, 10000);
-    });
-    await this.eventBroker!.publish({
-      topic: 'CatalogMutate',
-      eventPayload: payload,
-    });
   }
 
   /**
@@ -534,33 +532,32 @@ export class BitbucketServerEntityProvider implements EntityProvider {
       result => result.items,
     ) as Promise<LocationEntity[]>;
   }
-
-  /**
-   * Converts an array of entities into an array of deferred entities with the provider's name as the location key.
-   *
-   * @param targets An array of entities to convert.
-   *
-   * @returns An array of deferred entities with the provider's name as the location key.
-   *
-   * @example
-   *
-   * const entities = [
-   *   { kind: 'Component', namespace: 'default', name: 'my-component' },
-   *   { kind: 'System', namespace: 'default', name: 'my-system' },
-   *   { kind: 'API', namespace: 'default', name: 'my-api' },
-   * ];
-   *
-   * const deferredEntities = toDeferredEntities(entities);
-   *
-   * // deferredEntities:
-   * // [
-   * //   { locationKey: 'my-provider', entity: { kind: 'Component', namespace: 'default', name: 'my-component' } },
-   * //   { locationKey: 'my-provider', entity: { kind: 'System', namespace: 'default', name: 'my-system' } },
-   * //   { locationKey: 'my-provider', entity: { kind: 'API', namespace: 'default', name: 'my-api' } },
-   * // ]
-   */
 }
 
+/**
+ * Converts an array of entities into an array of deferred entities with the provider's name as the location key.
+ *
+ * @param targets An array of entities to convert.
+ *
+ * @returns An array of deferred entities with the provider's name as the location key.
+ *
+ * @example
+ *
+ * const entities = [
+ *   { kind: 'Component', namespace: 'default', name: 'my-component' },
+ *   { kind: 'System', namespace: 'default', name: 'my-system' },
+ *   { kind: 'API', namespace: 'default', name: 'my-api' },
+ * ];
+ *
+ * const deferredEntities = toDeferredEntities(entities);
+ *
+ * // deferredEntities:
+ * // [
+ * //   { locationKey: 'my-provider', entity: { kind: 'Component', namespace: 'default', name: 'my-component' } },
+ * //   { locationKey: 'my-provider', entity: { kind: 'System', namespace: 'default', name: 'my-system' } },
+ * //   { locationKey: 'my-provider', entity: { kind: 'API', namespace: 'default', name: 'my-api' } },
+ * // ]
+ */
 export function toDeferredEntities(
   targets: Entity[],
   locationKey: string,

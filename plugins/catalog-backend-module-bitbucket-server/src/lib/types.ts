@@ -35,16 +35,15 @@ export type BitbucketServerProject = {
 };
 
 /** @public */
-export namespace Events {
+export namespace BitbucketServerEvents {
   export interface Event {
     eventKey: string;
   }
 
-  export interface PushEvent extends Event {
-    eventKey: string;
+  export interface RefsChangedEvent extends Event {
     date: string;
     actor: Actor;
-    repository: BitbucketServerEventRepository;
+    repository: Repository;
     changes: Change[];
     commits: undefined;
     ToCommit: undefined;
@@ -56,7 +55,7 @@ export namespace Events {
   export type Change = {
     ref: { id: string; displayId: string; type: string };
   };
-  export type BitbucketServerEventRepository = {
+  export type Repository = {
     slug: string;
     id: number;
     name: string;

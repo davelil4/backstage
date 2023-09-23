@@ -115,6 +115,7 @@ catalog:
       yourProviderId: # identifies your ingested dataset
         host: 'bitbucket.mycompany.com'
         catalogPath: /catalog-info.yaml # default value
+        defaultBranch: 'default-repository-branch-name'
         filters: # optional
           projectKey: '^apis-.*$' # optional; RegExp
           repoSlug: '^service-.*$' # optional; RegExp
@@ -131,6 +132,8 @@ catalog:
   Default: `/catalog-info.yaml`.
   Path where to look for `catalog-info.yaml` files.
   When started with `/`, it is an absolute path from the repo root.
+- **`defaultBranch`**:
+  The name of the default branch for repositories under this provider.
 - **`filters`** _(optional)_:
   - **`projectKey`** _(optional)_:
     Regular expression used to filter results based on the project key.

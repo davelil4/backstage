@@ -9,8 +9,8 @@ import { Config } from '@backstage/config';
 import { Entity } from '@backstage/catalog-model';
 import { EntityProvider } from '@backstage/plugin-catalog-node';
 import { EntityProviderConnection } from '@backstage/plugin-catalog-node';
-import { EventBroker } from '@backstage/plugin-events-node';
 import { EventParams } from '@backstage/plugin-events-node';
+import { EventSubscriber } from '@backstage/plugin-events-node';
 import { LocationSpec } from '@backstage/plugin-catalog-node';
 import { Logger } from 'winston';
 import { PluginTaskScheduler } from '@backstage/backend-tasks';
@@ -52,7 +52,9 @@ export class BitbucketServerClient {
 }
 
 // @public
-export class BitbucketServerEntityProvider implements EntityProvider {
+export class BitbucketServerEntityProvider
+  implements EntityProvider, EventSubscriber
+{
   // (undocumented)
   connect(connection: EntityProviderConnection): Promise<void>;
   // (undocumented)
@@ -65,20 +67,61 @@ export class BitbucketServerEntityProvider implements EntityProvider {
       scheduler?: PluginTaskScheduler;
       catalogApi?: CatalogApi;
       tokenManager?: TokenManager;
-      eventBroker?: EventBroker;
     },
   ): BitbucketServerEntityProvider[];
   // (undocumented)
   getProviderName(): string;
   // (undocumented)
   onEvent(params: EventParams): Promise<void>;
-  onRepoPush(event: Events.PushEvent): Promise<void>;
+  onRepoPush(event: BitbucketServerEvents.RefsChangedEvent): Promise<void>;
   // (undocumented)
   refresh(logger: Logger): Promise<void>;
   // (undocumented)
   supportsEventTopics(): string[];
+}
+
+// @public (undocumented)
+export namespace BitbucketServerEvents {
   // (undocumented)
-  readonly TARGET_ANNOTATION: string;
+  export type Actor = {
+    name?: string;
+    id: number;
+  };
+  // (undocumented)
+  export type Change = {
+    ref: {
+      id: string;
+      displayId: string;
+      type: string;
+    };
+  };
+  // (undocumented)
+  export interface Event {
+    // (undocumented)
+    eventKey: string;
+  }
+  // (undocumented)
+  export interface RefsChangedEvent extends Event {
+    // (undocumented)
+    actor: Actor;
+    // (undocumented)
+    changes: Change[];
+    // (undocumented)
+    commits: undefined;
+    // (undocumented)
+    date: string;
+    // (undocumented)
+    repository: Repository;
+    // (undocumented)
+    ToCommit: undefined;
+  }
+  // (undocumented)
+  export type Repository = {
+    slug: string;
+    id: number;
+    name: string;
+    project: BitbucketServerProject;
+  };
 }
 
 // @public (undocumented)
@@ -124,50 +167,4 @@ export type BitbucketServerRepository = {
     }[]
   >;
 };
-
-// @public (undocumented)
-export namespace Events {
-  // (undocumented)
-  export type Actor = {
-    name?: string;
-    id: number;
-  };
-  // (undocumented)
-  export type BitbucketServerEventRepository = {
-    slug: string;
-    id: number;
-    name: string;
-    project: BitbucketServerProject;
-  };
-  // (undocumented)
-  export type Change = {
-    ref: {
-      id: string;
-      displayId: string;
-      type: string;
-    };
-  };
-  // (undocumented)
-  export interface Event {
-    // (undocumented)
-    eventKey: string;
-  }
-  // (undocumented)
-  export interface PushEvent extends Event {
-    // (undocumented)
-    actor: Actor;
-    // (undocumented)
-    changes: Change[];
-    // (undocumented)
-    commits: undefined;
-    // (undocumented)
-    date: string;
-    // (undocumented)
-    eventKey: string;
-    // (undocumented)
-    repository: BitbucketServerEventRepository;
-    // (undocumented)
-    ToCommit: undefined;
-  }
-}
 ```
