@@ -86,7 +86,7 @@ export class BitbucketServerClient {
       return await response.json();
     } catch {
       throw new NotFoundError(
-        `Error when attempting to get repository '${options.repo}' in project '${options.projectKey}' from Bitbucket Server. Repository might not exist.`,
+        `Malformed json response when attempting to get repository '${options.repo}' in project '${options.projectKey}' from Bitbucket Server. Repository might not exist.`,
       );
     }
   }

@@ -67,7 +67,11 @@ const logger = getVoidLogger();
 
 const server = setupServer();
 
-function setupStubs(projects: Project[], baseUrl: string) {
+function setupStubs(
+  projects: Project[],
+  baseUrl: string,
+  defaultBranch: string,
+) {
   // Stub projects
   server.use(
     rest.get(`${baseUrl}/rest/api/1.0/projects`, (_, res, ctx) => {
@@ -100,6 +104,7 @@ function setupStubs(projects: Project[], baseUrl: string) {
                   },
                 ],
               },
+              defaultBranch: defaultBranch,
             });
           }
           return res(ctx.json(pagedResponse(response)));
@@ -113,7 +118,7 @@ const host = 'bitbucket.mycompany.com';
 const targetPath = `/catalog-info.yaml`;
 const test1RepoUrl = `https://${host}/projects/TEST/repos/test1/browse`;
 
-function setupRepositoryReqHandler() {
+function setupRepositoryReqHandler(defaultBranch: string) {
   server.use(
     rest.get(
       `https://${host}/rest/api/1.0/projects/TEST/repos/test1`,
@@ -141,6 +146,7 @@ function setupRepositoryReqHandler() {
               },
             ],
           },
+          defaultBranch: defaultBranch,
         };
         return res(ctx.json(response));
       },
@@ -189,6 +195,7 @@ const repoPushEventParams = {
 const createLocationEntity = (
   repoUrl: string,
   path: string,
+  defaultBranch: string,
 ): LocationEntity => {
   const target = `${repoUrl}${path}`;
 
@@ -202,6 +209,7 @@ const createLocationEntity = (
   entity.metadata.annotations = {
     ...entity.metadata.annotations,
     [`${host}/repo-url`]: target,
+    ['bitbucket.org/default-branch']: defaultBranch,
   };
 
   return entity;
@@ -348,6 +356,7 @@ describe('BitbucketServerEntityProvider', () => {
         { key: 'other-project', repos: ['other-repo'] },
       ],
       `https://${host}`,
+      'master',
     );
     await provider.connect(entityProviderConnection);
 
@@ -365,6 +374,7 @@ describe('BitbucketServerEntityProvider', () => {
             annotations: {
               'backstage.io/managed-by-location': `url:${url}`,
               'backstage.io/managed-by-origin-location': `url:${url}`,
+              'bitbucket.org/default-branch': 'master',
             },
             name: 'generated-77f4323822420990f8c3e3c981d38c2dec4ae3a6',
           },
@@ -423,6 +433,7 @@ describe('BitbucketServerEntityProvider', () => {
         { key: 'other-project', repos: ['other-repo'] },
       ],
       `https://${host}`,
+      'master',
     );
     await provider.connect(entityProviderConnection);
 
@@ -439,6 +450,7 @@ describe('BitbucketServerEntityProvider', () => {
             annotations: {
               'backstage.io/managed-by-location': `url:https://${host}/projects/project-test/repos/repo-test/browse/catalog-info.yaml`,
               'backstage.io/managed-by-origin-location': `url:https://${host}/projects/project-test/repos/repo-test/browse/catalog-info.yaml`,
+              'bitbucket.org/default-branch': 'master',
             },
             name: 'generated-77f4323822420990f8c3e3c981d38c2dec4ae3a6',
           },
@@ -458,6 +470,7 @@ describe('BitbucketServerEntityProvider', () => {
             annotations: {
               'backstage.io/managed-by-location': `url:https://${host}/projects/other-project/repos/other-repo/browse/catalog-info.yaml`,
               'backstage.io/managed-by-origin-location': `url:https://${host}/projects/other-project/repos/other-repo/browse/catalog-info.yaml`,
+              'bitbucket.org/default-branch': 'master',
             },
             name: 'generated-d8d4944c30c2906dfee172ddda9537f9893b2c0f',
           },
@@ -581,6 +594,7 @@ describe('BitbucketServerEntityProvider', () => {
         { key: 'other-project', repos: ['other-repo'] },
       ],
       `https://${host}`,
+      'master',
     );
     await provider.connect(entityProviderConnection);
 
@@ -597,6 +611,7 @@ describe('BitbucketServerEntityProvider', () => {
             annotations: {
               'backstage.io/managed-by-location': `url:https://${host}/projects/project-test/repos/repo-test/browse/catalog-info.yaml`,
               'backstage.io/managed-by-origin-location': `url:https://${host}/projects/project-test/repos/repo-test/browse/catalog-info.yaml`,
+              'bitbucket.org/default-branch': 'master',
             },
             name: 'generated-77f4323822420990f8c3e3c981d38c2dec4ae3a6',
           },
@@ -616,6 +631,7 @@ describe('BitbucketServerEntityProvider', () => {
             annotations: {
               'backstage.io/managed-by-location': `url:https://${host}/projects/other-project/repos/other-repo/browse/catalog-info.yaml`,
               'backstage.io/managed-by-origin-location': `url:https://${host}/projects/other-project/repos/other-repo/browse/catalog-info.yaml`,
+              'bitbucket.org/default-branch': 'master',
             },
             name: 'generated-d8d4944c30c2906dfee172ddda9537f9893b2c0f',
           },
@@ -673,6 +689,7 @@ describe('BitbucketServerEntityProvider', () => {
             'backstage.io/managed-by-location': `url:https://${host}/projects/project-test/repos/repo-test/browse/catalog-info.yaml`,
             'backstage.io/managed-by-origin-location': `url:https://${host}/projects/project-test/repos/repo-test/browse/catalog-info.yaml`,
             [`${host}/repo-url`]: `https://${host}/projects/project-test/repos/repo-test/browse/catalog-info.yaml`,
+            'bitbucket.org/default-branch': 'master',
           },
           name: 'generated-77f4323822420990f8c3e3c981d38c2dec4ae3a6',
         },
@@ -690,6 +707,7 @@ describe('BitbucketServerEntityProvider', () => {
             'backstage.io/managed-by-location': `url:https://${host}/projects/other-project/repos/other-repo/browse/catalog-info.yaml`,
             'backstage.io/managed-by-origin-location': `url:https://${host}/projects/other-project/repos/other-repo/browse/catalog-info.yaml`,
             [`${host}/repo-url`]: `https://${host}/projects/other-project/repos/other-repo/browse/catalog-info.yaml`,
+            'bitbucket.org/default-branch': 'master',
           },
           name: 'generated-d8d4944c30c2906dfee172ddda9537f9893b2c0f',
         },
@@ -723,13 +741,14 @@ describe('BitbucketServerEntityProvider', () => {
     const keptModule = createLocationEntity(
       test1RepoUrl,
       `/kept-module:${targetPath}`,
+      'master',
     );
     const entityProviderConnection: EntityProviderConnection = {
       applyMutation: jest.fn(),
       refresh: jest.fn(),
     };
 
-    setupRepositoryReqHandler();
+    setupRepositoryReqHandler('master');
 
     const config = new ConfigReader({
       integrations: {
@@ -752,39 +771,6 @@ describe('BitbucketServerEntityProvider', () => {
         },
       },
     });
-
-    server.use(
-      rest.get(
-        `https://${host}/rest/api/1.0/projects/TEST/repos/test1`,
-        (_, res, ctx) => {
-          const response = {
-            slug: 'test1',
-            id: 1,
-            name: 'test1',
-            project: {
-              key: 'TEST',
-              id: 1,
-              name: 'TEST',
-              links: {
-                self: [
-                  {
-                    href: `https://${host}/projects/TEST`,
-                  },
-                ],
-              },
-            },
-            links: {
-              self: [
-                {
-                  href: `${test1RepoUrl}`,
-                },
-              ],
-            },
-          };
-          return res(ctx.json(response));
-        },
-      ),
-    );
 
     const catalogApi = {
       getEntities: async (
@@ -821,6 +807,73 @@ describe('BitbucketServerEntityProvider', () => {
     expect(entityProviderConnection.applyMutation).toHaveBeenCalledTimes(0);
   });
 
+  it('no refresh onRepoPush due to different default branch', async () => {
+    const schedule = new PersistingTaskRunner();
+    const keptModule = createLocationEntity(
+      test1RepoUrl,
+      `/kept-module:${targetPath}`,
+      'main',
+    );
+    const entityProviderConnection: EntityProviderConnection = {
+      applyMutation: jest.fn(),
+      refresh: jest.fn(),
+    };
+
+    setupRepositoryReqHandler('main');
+
+    const config = new ConfigReader({
+      integrations: {
+        bitbucketServer: [
+          {
+            host: host,
+          },
+        ],
+      },
+      catalog: {
+        providers: {
+          bitbucketServer: {
+            mainProvider: {
+              host: host,
+              apiBaseUrl: `https://${host}/rest/api/1.0`,
+              catalogPath: `/kept-module:/catalog-info.yaml`,
+            },
+          },
+        },
+      },
+    });
+
+    const catalogApi = {
+      getEntities: async (
+        request: { filter: Record<string, string> },
+        options: { token: string },
+      ): Promise<{ items: Entity[] }> => {
+        if (
+          options.token !== 'fake-token' ||
+          request.filter.kind !== 'Location' ||
+          request.filter[`metadata.annotations.${host}/repo-url`] !==
+            `${test1RepoUrl}/kept-module:${targetPath}`
+        ) {
+          return { items: [] };
+        }
+        return {
+          items: [keptModule],
+        };
+      },
+    };
+    const provider = BitbucketServerEntityProvider.fromConfig(config, {
+      catalogApi: catalogApi as any as CatalogApi,
+      logger,
+      schedule,
+      tokenManager,
+    })[0];
+
+    await provider.connect(entityProviderConnection);
+    await provider.onEvent(repoPushEventParams);
+
+    expect(entityProviderConnection.refresh).toHaveBeenCalledTimes(0);
+    expect(entityProviderConnection.applyMutation).toHaveBeenCalledTimes(0);
+  });
+
   it('onRepoPush fail on incomplete setup', async () => {
     const config = new ConfigReader({
       integrations: {
@@ -853,10 +906,11 @@ describe('BitbucketServerEntityProvider', () => {
 
   it('add onRepoPush', async () => {
     const schedule = new PersistingTaskRunner();
-    setupRepositoryReqHandler();
+    setupRepositoryReqHandler('master');
     const addedModule = createLocationEntity(
       test1RepoUrl,
       `/added-module:${targetPath}`,
+      'master',
     );
 
     const entityProviderConnection: EntityProviderConnection = {
@@ -922,5 +976,60 @@ describe('BitbucketServerEntityProvider', () => {
       added: addedEntities,
       removed: removedEntities,
     });
+  });
+
+  it('fail add onRepoPush from wrong default branch', async () => {
+    const schedule = new PersistingTaskRunner();
+    setupRepositoryReqHandler('main');
+
+    const entityProviderConnection: EntityProviderConnection = {
+      applyMutation: jest.fn(),
+      refresh: jest.fn(),
+    };
+
+    const config = new ConfigReader({
+      integrations: {
+        bitbucketServer: [
+          {
+            host: host,
+          },
+        ],
+      },
+      catalog: {
+        providers: {
+          bitbucketServer: {
+            mainProvider: {
+              host: host,
+              apiBaseUrl: `https://${host}/rest/api/1.0`,
+              catalogPath: `/added-module:/catalog-info.yaml`,
+            },
+          },
+        },
+      },
+    });
+
+    const catalogApi = {
+      getEntities: async (
+        _request: { filter: Record<string, string> },
+        _options: { token: string },
+      ): Promise<{ items: Entity[] }> => {
+        return {
+          items: [],
+        };
+      },
+    };
+    const provider = BitbucketServerEntityProvider.fromConfig(config, {
+      catalogApi: catalogApi as any as CatalogApi,
+      logger,
+      schedule,
+      tokenManager,
+    })[0];
+
+    await provider.connect(entityProviderConnection);
+    await provider.onEvent(repoPushEventParams);
+
+    expect(entityProviderConnection.refresh).toHaveBeenCalledTimes(0);
+
+    expect(entityProviderConnection.applyMutation).toHaveBeenCalledTimes(0);
   });
 });

@@ -65,8 +65,8 @@ export class BitbucketServerEntityProvider
   private readonly catalogApi?: CatalogApi;
   private readonly tokenManager?: TokenManager;
   private eventConfigErrorThrown = false;
-  private readonly TARGET_ANNOTATION: string;
-  private readonly DEFAULT_BRANCH: String | undefined;
+  private readonly targetAnnotation: string;
+  private readonly defaultBranchAnnotation: string;
 
   static fromConfig(
     config: Config,
@@ -105,18 +105,11 @@ export class BitbucketServerEntityProvider
         options.schedule ??
         options.scheduler!.createScheduledTaskRunner(providerConfig.schedule!);
 
-      const defaultBranch = providerConfig.defaultBranch;
-      if (defaultBranch === undefined)
-        options.logger.error(
-          `No default repository branch provided for provider id: ${providerConfig.id}.`,
-        );
-
       return new BitbucketServerEntityProvider(
         providerConfig,
         integration,
         options.logger,
         taskRunner,
-        defaultBranch,
         options.parser,
         options.catalogApi,
         options.tokenManager,
@@ -129,7 +122,6 @@ export class BitbucketServerEntityProvider
     integration: BitbucketServerIntegration,
     logger: Logger,
     taskRunner: TaskRunner,
-    defaultBranch?: String,
     parser?: BitbucketServerLocationParser,
     catalogApi?: CatalogApi,
     tokenManager?: TokenManager,
@@ -143,8 +135,8 @@ export class BitbucketServerEntityProvider
     this.scheduleFn = this.createScheduleFn(taskRunner);
     this.catalogApi = catalogApi;
     this.tokenManager = tokenManager;
-    this.TARGET_ANNOTATION = `${this.config.host}/repo-url`;
-    this.DEFAULT_BRANCH = defaultBranch;
+    this.targetAnnotation = `${this.config.host}/repo-url`;
+    this.defaultBranchAnnotation = 'bitbucket.org/default-branch';
   }
 
   private createScheduleFn(taskRunner: TaskRunner): () => Promise<void> {
@@ -242,6 +234,8 @@ export class BitbucketServerEntityProvider
             presence: 'optional',
           },
         })) {
+          entity.metadata.annotations![this.defaultBranchAnnotation] =
+            repository.defaultBranch;
           result.push(entity);
         }
       }
@@ -254,9 +248,10 @@ export class BitbucketServerEntityProvider
    * @param event Bitbucket Server webhook repo:refs_changed event
    */
   private isDefaultBranchPush(
+    defaultBranch: String,
     event: BitbucketServerEvents.RefsChangedEvent,
   ): boolean {
-    return event.changes.some(c => this.DEFAULT_BRANCH === c.ref.displayId);
+    return event.changes.some(c => defaultBranch === c.ref.displayId);
   }
 
   /**
@@ -378,9 +373,11 @@ export class BitbucketServerEntityProvider
         },
       })) {
         entity.metadata.annotations![
-          this.TARGET_ANNOTATION
+          this.targetAnnotation
         ] = `${repository.links.self[0].href}${this.config.catalogPath}`;
         result.push(entity);
+        entity.metadata.annotations![this.defaultBranchAnnotation] =
+          repository.defaultBranch;
       }
     } catch (error: any) {
       if (error.name === 'NotFoundError') {
@@ -436,9 +433,6 @@ export class BitbucketServerEntityProvider
       throw new Error('Not initialized');
     }
 
-    if (this.DEFAULT_BRANCH !== undefined && !this.isDefaultBranchPush(event))
-      return;
-
     const repoSlug = event.repository.slug;
     const catalogRepoUrl: string = `https://${this.config.host}/projects/${event.repository.project.key}/repos/${repoSlug}/browse${this.config.catalogPath}`;
     this.logger.info(`handle repo:push event for ${catalogRepoUrl}`);
@@ -449,16 +443,13 @@ export class BitbucketServerEntityProvider
     }
     const { token } = await this.tokenManager!.getToken();
     const existing = await this.findExistingLocations(catalogRepoUrl, token);
-
-    const added = this.getAddedEntities(targets, existing);
-
     const stillExisting: LocationEntity[] = [];
     const removed: DeferredEntity[] = [];
     existing.forEach(item => {
       if (
         targets.find(
           value =>
-            value.metadata.annotations![this.TARGET_ANNOTATION] ===
+            value.metadata.annotations![this.targetAnnotation] ===
             item.spec.target,
         )
       ) {
@@ -470,6 +461,40 @@ export class BitbucketServerEntityProvider
         });
       }
     });
+
+    const added = await this.getAddedEntities(targets, existing);
+
+    if (
+      stillExisting.length > 0 &&
+      stillExisting[0].metadata.annotations![this.defaultBranchAnnotation] !==
+        undefined &&
+      !this.isDefaultBranchPush(
+        stillExisting[0].metadata.annotations![this.defaultBranchAnnotation],
+        event,
+      )
+    ) {
+      return;
+    } else if (
+      added.length > 0 &&
+      added[0].entity.metadata.annotations![this.defaultBranchAnnotation] !==
+        undefined &&
+      !this.isDefaultBranchPush(
+        added[0].entity.metadata.annotations![this.defaultBranchAnnotation],
+        event,
+      )
+    ) {
+      return;
+    } else if (
+      removed.length > 0 &&
+      removed[0].entity.metadata.annotations![this.defaultBranchAnnotation] !==
+        undefined &&
+      !this.isDefaultBranchPush(
+        removed[0].entity.metadata.annotations![this.defaultBranchAnnotation],
+        event,
+      )
+    ) {
+      return;
+    }
 
     const promises: Promise<void>[] = [
       this.connection.refresh({
@@ -496,17 +521,17 @@ export class BitbucketServerEntityProvider
    * @param existing The location entities in the repository that was pushed that already exist
    * @returns Returns all deferred entities that represent location entities that don't exist in the catalog yet
    */
-  private getAddedEntities(
+  private async getAddedEntities(
     targets: Entity[],
     existing: LocationEntity[],
-  ): DeferredEntity[] {
+  ): Promise<DeferredEntity[]> {
     const added: DeferredEntity[] = toDeferredEntities(
       targets.filter(
         target =>
           !existing.find(
             item =>
               item.spec.target ===
-              target.metadata.annotations![this.TARGET_ANNOTATION],
+              target.metadata.annotations![this.targetAnnotation],
           ),
       ),
       this.getProviderName(),
@@ -526,7 +551,7 @@ export class BitbucketServerEntityProvider
   ): Promise<LocationEntity[]> {
     const filter: Record<string, string> = {};
     filter.kind = 'Location';
-    filter[`metadata.annotations.${this.TARGET_ANNOTATION}`] = catalogRepoUrl;
+    filter[`metadata.annotations.${this.targetAnnotation}`] = catalogRepoUrl;
 
     return this.catalogApi!.getEntities({ filter }, { token }).then(
       result => result.items,

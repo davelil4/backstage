@@ -31,7 +31,6 @@ export type BitbucketServerEntityProviderConfig = {
     projectKey?: RegExp;
     repoSlug?: RegExp;
   };
-  defaultBranch?: String;
   schedule?: TaskScheduleDefinition;
 };
 
@@ -70,8 +69,6 @@ function readProviderConfig(
     ? readTaskScheduleDefinitionFromConfig(config.getConfig('schedule'))
     : undefined;
 
-  const defaultBranch = config.getOptionalString('defaultBranch');
-
   return {
     id,
     host,
@@ -80,7 +77,6 @@ function readProviderConfig(
       projectKey: projectKeyPattern ? new RegExp(projectKeyPattern) : undefined,
       repoSlug: repoSlugPattern ? new RegExp(repoSlugPattern) : undefined,
     },
-    defaultBranch,
     schedule,
   };
 }

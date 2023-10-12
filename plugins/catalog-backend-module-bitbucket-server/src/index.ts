@@ -26,7 +26,6 @@ export type {
   BitbucketServerRepository,
   BitbucketServerPagedResponse,
   BitbucketServerListOptions,
-  BitbucketServerEvents,
 } from './lib';
 export { BitbucketServerEntityProvider } from './providers';
 export type { BitbucketServerLocationParser } from './providers';

@@ -121,6 +121,7 @@ describe('BitbucketServerClient', () => {
                       },
                     ],
                   },
+                  defaultBranch: 'master',
                 },
               ],
             };
@@ -198,6 +199,7 @@ describe('BitbucketServerClient', () => {
                 },
               ],
             },
+            defaultBranch: 'master',
           };
 
           return res(ctx.json(response));

@@ -52,32 +52,6 @@ describe('readProviderConfigs', () => {
     });
   });
 
-  it('single simple provider config with defaultBranches string array', () => {
-    const config = new ConfigReader({
-      catalog: {
-        providers: {
-          bitbucketServer: {
-            host: 'bitbucket.mycompany.com',
-            defaultBranch: 'master',
-          },
-        },
-      },
-    });
-    const providerConfigs = readProviderConfigs(config);
-
-    expect(providerConfigs).toHaveLength(1);
-    expect(providerConfigs[0]).toEqual({
-      id: 'default',
-      catalogPath: '/catalog-info.yaml',
-      host: 'bitbucket.mycompany.com',
-      filters: {
-        projectKey: undefined,
-        repoSlug: undefined,
-      },
-      defaultBranch: 'master',
-    });
-  });
-
   it('multiple provider configs', () => {
     const config = new ConfigReader({
       catalog: {

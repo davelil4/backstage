@@ -27,6 +27,7 @@ export type BitbucketServerRepository = {
       href: string;
     }[]
   >;
+  defaultBranch: string;
 };
 
 /** @public */
