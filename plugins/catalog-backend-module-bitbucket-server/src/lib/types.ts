@@ -34,6 +34,15 @@ export type BitbucketServerRepository = {
 export type BitbucketServerProject = {
   key: string;
 };
+/** @public */
+export type BitbucketServerDefaultBranch = {
+  id: string;
+  displayId: string;
+  type: string;
+  latestCommit: string;
+  latestChangeset: string;
+  isDefault: boolean;
+};
 
 /** @public */
 export namespace BitbucketServerEvents {

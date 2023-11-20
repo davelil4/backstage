@@ -19,7 +19,11 @@ import {
   BitbucketServerIntegrationConfig,
   getBitbucketServerRequestOptions,
 } from '@backstage/integration';
-import { BitbucketServerProject, BitbucketServerRepository } from './types';
+import {
+  BitbucketServerDefaultBranch,
+  BitbucketServerProject,
+  BitbucketServerRepository,
+} from './types';
 import { NotFoundError } from '@backstage/errors';
 
 /**
@@ -89,6 +93,31 @@ export class BitbucketServerClient {
         `Malformed json response when attempting to get repository '${options.repo}' in project '${options.projectKey}' from Bitbucket Server. Repository might not exist.`,
       );
     }
+  }
+
+  async getDefaultBranch(options: {
+    projectKey: string;
+    repo: string;
+  }): Promise<BitbucketServerDefaultBranch> {
+    const request = `${this.config.apiBaseUrl}/projects/${options.projectKey}/repos/${options.repo}/default-branch`;
+    const response = await fetch(
+      request,
+      getBitbucketServerRequestOptions(this.config),
+    );
+    return response.json().then(
+      res => res,
+      _ => {
+        throw new NotFoundError(
+          `Malformed json response when attempting to get the default branch of repository '${options.repo}' in project '${options.projectKey}' from Bitbucket Server. Repository might not exist.`,
+        );
+      },
+    );
+
+    // response.json().then(value => value).catch(_ =>{
+    //   throw new NotFoundError(
+    //     `Malformed json response when attempting to get the default branch of repository '${options.repo}' in project '${options.projectKey}' from Bitbucket Server. Repository might not exist.`,
+    //   );
+    // });
   }
 
   resolvePath(options: { projectKey: string; repo: string; path: string }): {

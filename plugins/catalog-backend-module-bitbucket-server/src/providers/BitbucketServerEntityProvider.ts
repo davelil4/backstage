@@ -135,7 +135,7 @@ export class BitbucketServerEntityProvider
     this.scheduleFn = this.createScheduleFn(taskRunner);
     this.catalogApi = catalogApi;
     this.tokenManager = tokenManager;
-    this.targetAnnotation = `${this.config.host}/repo-url`;
+    this.targetAnnotation = `${this.config.host.split(':')[0]}/repo-url`;
     this.defaultBranchAnnotation = 'bitbucket.org/default-branch';
   }
 
@@ -234,8 +234,20 @@ export class BitbucketServerEntityProvider
             presence: 'optional',
           },
         })) {
-          entity.metadata.annotations![this.defaultBranchAnnotation] =
-            repository.defaultBranch;
+          if (entity.metadata.annotations === undefined) {
+            entity.metadata.annotations = {};
+          }
+          if (repository.defaultBranch === undefined) {
+            const defaultBranchResponse = await client.getDefaultBranch({
+              repo: repository.slug,
+              projectKey: project.key,
+            });
+            entity.metadata.annotations[this.defaultBranchAnnotation] =
+              defaultBranchResponse.displayId;
+          } else {
+            entity.metadata.annotations[this.defaultBranchAnnotation] =
+              repository.defaultBranch;
+          }
           result.push(entity);
         }
       }
@@ -375,9 +387,23 @@ export class BitbucketServerEntityProvider
         entity.metadata.annotations![
           this.targetAnnotation
         ] = `${repository.links.self[0].href}${this.config.catalogPath}`;
+
+        if (entity.metadata.annotations === undefined) {
+          entity.metadata.annotations = {};
+        }
+
+        if (repository.defaultBranch === undefined) {
+          const defaultBranchResponse = await client.getDefaultBranch({
+            repo: repository.slug,
+            projectKey: event.repository.project.key,
+          });
+          entity.metadata.annotations[this.defaultBranchAnnotation] =
+            defaultBranchResponse.displayId;
+        } else {
+          entity.metadata.annotations[this.defaultBranchAnnotation] =
+            repository.defaultBranch;
+        }
         result.push(entity);
-        entity.metadata.annotations![this.defaultBranchAnnotation] =
-          repository.defaultBranch;
       }
     } catch (error: any) {
       if (error.name === 'NotFoundError') {
@@ -513,6 +539,8 @@ export class BitbucketServerEntityProvider
     }
 
     await Promise.all(promises);
+
+    return;
   }
 
   /**
