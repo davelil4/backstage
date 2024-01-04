@@ -21,9 +21,10 @@ import {
 } from '@backstage/integration';
 import {
   BitbucketServerDefaultBranch,
-  BitbucketServerProject,
   BitbucketServerRepository,
-} from './types';
+} from './index';
+
+import { BitbucketServerProject } from './types';
 import { NotFoundError } from '@backstage/errors';
 
 /**
