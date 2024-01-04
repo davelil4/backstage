@@ -19,8 +19,4 @@ export type {
   BitbucketServerPagedResponse,
   BitbucketServerListOptions,
 } from './BitbucketServerClient';
-export type {
-  BitbucketServerRepository,
-  BitbucketServerEvents,
-  BitbucketServerDefaultBranch,
-} from './types';
+export * from './types';

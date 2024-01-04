@@ -188,7 +188,9 @@ export type BitbucketServerPagedResponse<T> = {
   values: T[];
   nextPageStart: number;
 };
-
+/**
+ * @public
+ */
 export async function* paginated(
   request: (
     options: BitbucketServerListOptions,

@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-/** @internal */
-export type BitbucketServerRepository = {
+/** @public */
+type BitbucketServerRepository = {
   project: {
     key: string;
   };
@@ -30,13 +30,13 @@ export type BitbucketServerRepository = {
   defaultBranch: string;
 };
 
-/** @internal */
-export type BitbucketServerProject = {
+/** @public */
+type BitbucketServerProject = {
   key: string;
 };
 
-/** @internal */
-export type BitbucketServerDefaultBranch = {
+/** @public */
+type BitbucketServerDefaultBranch = {
   id: string;
   displayId: string;
   type: string;
@@ -45,9 +45,9 @@ export type BitbucketServerDefaultBranch = {
   isDefault: boolean;
 };
 
-/** @internal */
-export namespace BitbucketServerEvents {
-  export interface Event {
+/** @public */
+namespace BitbucketServerEvents {
+  interface Event {
     eventKey: string;
   }
 
@@ -59,17 +59,24 @@ export namespace BitbucketServerEvents {
     commits: undefined;
     ToCommit: undefined;
   }
-  export type Actor = {
+  type Actor = {
     name?: string;
     id: number;
   };
-  export type Change = {
+  type Change = {
     ref: { id: string; displayId: string; type: string };
   };
-  export type Repository = {
+  type Repository = {
     slug: string;
     id: number;
     name: string;
     project: BitbucketServerProject;
   };
 }
+
+export type {
+  BitbucketServerDefaultBranch,
+  BitbucketServerProject,
+  BitbucketServerEvents,
+  BitbucketServerRepository,
+};
