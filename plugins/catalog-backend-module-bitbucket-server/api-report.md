@@ -25,6 +25,13 @@ export class BitbucketServerClient {
   static fromConfig(options: {
     config: BitbucketServerIntegrationConfig;
   }): BitbucketServerClient;
+  // Warning: (ae-forgotten-export) The symbol "BitbucketServerDefaultBranch" needs to be exported by the entry point index.d.ts
+  //
+  // (undocumented)
+  getDefaultBranch(options: {
+    projectKey: string;
+    repo: string;
+  }): Promise<BitbucketServerDefaultBranch>;
   // (undocumented)
   getFile(options: {
     projectKey: string;
@@ -73,55 +80,12 @@ export class BitbucketServerEntityProvider
   getProviderName(): string;
   // (undocumented)
   onEvent(params: EventParams): Promise<void>;
+  // Warning: (ae-forgotten-export) The symbol "BitbucketServerEvents" needs to be exported by the entry point index.d.ts
   onRepoPush(event: BitbucketServerEvents.RefsChangedEvent): Promise<void>;
   // (undocumented)
   refresh(logger: Logger): Promise<void>;
   // (undocumented)
   supportsEventTopics(): string[];
-}
-
-// @public (undocumented)
-export namespace BitbucketServerEvents {
-  // (undocumented)
-  export type Actor = {
-    name?: string;
-    id: number;
-  };
-  // (undocumented)
-  export type Change = {
-    ref: {
-      id: string;
-      displayId: string;
-      type: string;
-    };
-  };
-  // (undocumented)
-  export interface Event {
-    // (undocumented)
-    eventKey: string;
-  }
-  // (undocumented)
-  export interface RefsChangedEvent extends Event {
-    // (undocumented)
-    actor: Actor;
-    // (undocumented)
-    changes: Change[];
-    // (undocumented)
-    commits: undefined;
-    // (undocumented)
-    date: string;
-    // (undocumented)
-    repository: Repository;
-    // (undocumented)
-    ToCommit: undefined;
-  }
-  // (undocumented)
-  export type Repository = {
-    slug: string;
-    id: number;
-    name: string;
-    project: BitbucketServerProject;
-  };
 }
 
 // @public (undocumented)
@@ -148,11 +112,15 @@ export type BitbucketServerPagedResponse<T> = {
   nextPageStart: number;
 };
 
+// Warning: (ae-missing-release-tag) "BitbucketServerProject" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 export type BitbucketServerProject = {
   key: string;
 };
 
+// Warning: (ae-missing-release-tag) "BitbucketServerRepository" is part of the package's API, but it is missing a release tag (@alpha, @beta, @public, or @internal)
+//
 // @public (undocumented)
 export type BitbucketServerRepository = {
   project: {
@@ -166,5 +134,6 @@ export type BitbucketServerRepository = {
       href: string;
     }[]
   >;
+  defaultBranch: string;
 };
 ```

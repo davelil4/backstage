@@ -38,7 +38,7 @@ import {
   BitbucketServerLocationParser,
   defaultBitbucketServerLocationParser,
 } from './BitbucketServerLocationParser';
-import { BitbucketServerEvents } from '../lib/index';
+import { BitbucketServerEvents } from '../lib';
 import { EventParams, EventSubscriber } from '@backstage/plugin-events-node';
 import { CatalogApi } from '@backstage/catalog-client';
 import { TokenManager } from '@backstage/backend-common';
